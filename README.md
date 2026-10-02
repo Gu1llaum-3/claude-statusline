@@ -3,16 +3,22 @@
 A compact status line for [Claude Code](https://docs.claude.com/en/docs/claude-code/statusline).
 
 ```
-✻ Opus 5.5 │ high │ my-project ⎇ main (+12 -3) │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M │ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
+ ▐▛███▜▌   ✻ Opus 5.5 │ high │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M
+▝▜█████▛▘  ⎇ my-project main (+12 -3)
+  ▘▘ ▝▝    ◔ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
 ```
 
-It shows, from left to right:
+Or, with the `compact` layout, on one line:
 
-- **Model** in use, behind the Claude spark
-- **Effort level**
-- **Folder ⎇ git branch**: green when everything is committed, orange otherwise, with uncommitted line changes
-- **Context window** usage, as a gauge and in tokens
-- **5-hour and 7-day rate limits**, with the time left until each one resets; in the last 15 minutes before the 5-hour reset, a ↻ respawn countdown
+```
+✻ Opus 5.5 │ high │ ⎇ my-project main (+12 -3) │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M │ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
+```
+
+Next to Clawd, the Claude Code mascot, the `full` layout shows three lines:
+
+1. **Model** in use, behind the Claude spark, **effort level** and **context window** usage, as a gauge and in tokens
+2. **⎇ Folder and git branch**: green when everything is committed, orange otherwise, with uncommitted line changes
+3. **◔ 5-hour and 7-day rate limits**, with the time left until each one resets; in the last 15 minutes before the 5-hour reset, a ↻ respawn countdown
 
 Gauges turn red at 80%.
 
@@ -32,17 +38,21 @@ Then restart Claude Code.
 The installer:
 
 1. Downloads `statusline.sh` to `~/.claude/statusline.sh` and makes it executable.
-2. Adds the `statusLine` entry to `~/.claude/settings.json`, keeping your other settings. The previous file is saved as `settings.json.bak`.
+2. Shows a preview of both layouts and asks which one you want. On an update, Enter keeps your current layout.
+3. Adds the `statusLine` entry to `~/.claude/settings.json`, keeping your other settings. The previous file is saved as `settings.json.bak`.
 
 If `settings.json` is not valid JSON, the installer stops without changing it.
 
 Run the same command again to update.
+
+From a clone, `./install.sh` installs the `statusline.sh` next to it instead of downloading it.
 
 ### Options
 
 | Variable              | Default                                                            | Purpose                           |
 | --------------------- | ------------------------------------------------------------------ | --------------------------------- |
 | `CLAUDE_CONFIG_DIR`   | `~/.claude`                                                        | Claude Code config directory      |
+| `STATUSLINE_LAYOUT`   | asked, or `full` without a terminal                                | `full` or `compact`, skips the question |
 | `STATUSLINE_REPO_RAW` | `https://raw.githubusercontent.com/Gu1llaum-3/claude-statusline/main` | Where to download the script from |
 
 ```bash
@@ -57,10 +67,12 @@ Copy `statusline.sh` to `~/.claude/statusline.sh`, run `chmod +x` on it, and add
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/statusline.sh"
+    "command": "~/.claude/statusline.sh full"
   }
 }
 ```
+
+Replace `full` with `compact` for the one-line layout.
 
 ## Uninstall
 

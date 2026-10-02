@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Usage: statusline.sh [full|compact]   full = 3 lines next to Clawd (default), compact = 1 line
+layout=${1:-full}
 input=$(cat)
 now=$(date +%s)
 
@@ -58,12 +60,14 @@ fmt() {  # tokens → 134k, 1M, 1.5M
   else printf '%d' "$n"; fi
 }
 
-# ── Folder ⎇ branch (green when everything is committed, orange otherwise) + uncommitted diff
+# ── ⎇ folder branch (green when everything is committed, orange otherwise) + uncommitted diff
+vcs="${DIM}·${RESET}"   # icon column placeholder outside a git repo
 loc="${CYAN}${cwd##*/}${RESET}"
 if branch=$(git --no-optional-locks -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
   bc=$GREEN
   [ -n "$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null | head -1)" ] && bc=$ORANGE
-  loc+=" ${bc}⎇ ${branch}${RESET}"
+  vcs="${bc}⎇${RESET}"
+  loc+=" ${bc}${branch}${RESET}"
   stat=$(git --no-optional-locks -C "$cwd" diff --numstat 2>/dev/null \
     | awk '{a+=$1; d+=$2} END {if (a+d) printf "+%d -%d", a, d}')
   [ -n "$stat" ] && loc+=" ${DIM}(${RESET}${GREEN}${stat% *}${RESET} ${RED}${stat#* }${RESET}${DIM})${RESET}"
@@ -85,10 +89,23 @@ esac
 # ── Context: derive tokens from percentage when current_usage is missing
 (( ${used%.*} == 0 && size > 0 )) && used=$(( ${ctx%.*} * size / 100 ))
 
-line="${ORANGE}✻${RESET} ${model% (*context)}"   # spark + "Opus 5.5 (1M context)" → "Opus 5.5"
-[ -n "$eff" ] && line+="${SEP}${eff}"
-line+="${SEP}${loc}${SEP}ctx $(gauge "$ctx")"
-(( size > 0 )) && line+=" ${DIM}$(fmt "$used")/$(fmt "$size")${RESET}"
-[ -n "$h5" ] && line+="${SEP}5h $(gauge "$h5")$(timer "$h5r")"
-[ -n "$d7" ] && line+="${SEP}7d $(gauge "$d7")$(left "$d7r")"
-printf '%s\n' "$line"
+# ── Model, effort / context / rate limits
+head="${ORANGE}✻${RESET} ${model% (*context)}"   # spark + "Opus 5.5 (1M context)" → "Opus 5.5"
+[ -n "$eff" ] && head+="${SEP}${eff}"
+cx="ctx $(gauge "$ctx")"
+(( size > 0 )) && cx+=" ${DIM}$(fmt "$used")/$(fmt "$size")${RESET}"
+lim=""
+[ -n "$h5" ] && lim="5h $(gauge "$h5")$(timer "$h5r")"
+[ -n "$d7" ] && lim+="${lim:+$SEP}7d $(gauge "$d7")$(left "$d7r")"
+
+if [ "$layout" = compact ]; then
+  [ -n "$branch" ] && loc="${vcs} ${loc}"
+  printf '%s\n' "${head}${SEP}${loc}${SEP}${cx}${lim:+$SEP$lim}"
+  exit 0
+fi
+
+# ── Clawd, the Claude Code mascot, on the left (padded to the same width)
+[ -n "$lim" ] && lim="${ORANGE}◔${RESET} ${lim}"   # plain Unicode, no Nerd Font needed
+printf '%s ▐▛███▜▌ %s  %s\n' "$ORANGE" "$RESET" "${head}${SEP}${cx}"
+printf '%s▝▜█████▛▘%s  %s\n' "$ORANGE" "$RESET" "${vcs} ${loc}"
+printf '%s  ▘▘ ▝▝  %s  %s\n' "$ORANGE" "$RESET" "$lim"
