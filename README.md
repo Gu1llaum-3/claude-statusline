@@ -11,7 +11,7 @@ Or, with the `compact` layout, on one line:
 Next to Clawd, the Claude Code mascot, the `full` layout shows three lines:
 
 1. **Model** in use, behind the Claude spark, **effort level** and **context window** usage, as a gauge and in tokens
-2. **⎇ Folder and git branch**: green when everything is committed, orange otherwise, with uncommitted line changes
+2. **⎇ Folder and git branch**: the branch is green when everything is committed, orange otherwise, with uncommitted line changes
 3. **◔ 5-hour and 7-day rate limits**, with the time left until each one resets; in the last 15 minutes before the 5-hour reset, a ↻ respawn countdown
 
 Gauges turn red at 80%.

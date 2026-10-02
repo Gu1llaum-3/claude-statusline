@@ -60,13 +60,13 @@ fmt() {  # tokens → 134k, 1M, 1.5M
   else printf '%d' "$n"; fi
 }
 
-# ── ⎇ folder branch (green when everything is committed, orange otherwise) + uncommitted diff
+# ── ⎇ folder branch (branch green when everything is committed, orange otherwise) + uncommitted diff
 vcs="${DIM}·${RESET}"   # icon column placeholder outside a git repo
 loc="${CYAN}${cwd##*/}${RESET}"
 if branch=$(git --no-optional-locks -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
   bc=$GREEN
   [ -n "$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null | head -1)" ] && bc=$ORANGE
-  vcs="${bc}⎇${RESET}"
+  vcs="${ORANGE}⎇${RESET}"
   loc+=" ${bc}${branch}${RESET}"
   stat=$(git --no-optional-locks -C "$cwd" diff --numstat 2>/dev/null \
     | awk '{a+=$1; d+=$2} END {if (a+d) printf "+%d -%d", a, d}')
