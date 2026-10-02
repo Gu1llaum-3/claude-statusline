@@ -2,17 +2,11 @@
 
 A compact status line for [Claude Code](https://docs.claude.com/en/docs/claude-code/statusline).
 
-```
- ▐▛███▜▌   ✻ Opus 5.5 │ high │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M
-▝▜█████▛▘  ⎇ my-project main (+12 -3)
-  ▘▘ ▝▝    ◔ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
-```
+![full layout](docs/full.png)
 
 Or, with the `compact` layout, on one line:
 
-```
-✻ Opus 5.5 │ high │ ⎇ my-project main (+12 -3) │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M │ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
-```
+![compact layout](docs/compact.png)
 
 Next to Clawd, the Claude Code mascot, the `full` layout shows three lines:
 
