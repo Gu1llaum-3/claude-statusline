@@ -3,18 +3,18 @@
 A compact status line for [Claude Code](https://docs.claude.com/en/docs/claude-code/statusline).
 
 ```
-Opus │ my-project@main (+12 -3) │ ctx ████░░░░░░  42% 84k/200k │ high │ 5h ███░░░░░░░  31% (2h14) │ 7d █████████░  85% (2d07h)
+✻ Opus 5.5 │ high │ my-project ⎇ main (+12 -3) │ ctx ▋▋▋▋▋▋▋▋▋▋ 42% 420k/1M │ 5h ▋▋▋▋▋▋▋▋▋▋ 31% (2h14) │ 7d ▋▋▋▋▋▋▋▋▋▋ 85% (2d07h)
 ```
 
 It shows, from left to right:
 
-- **Model** in use
-- **Folder @ git branch**, with uncommitted line changes
-- **Context window** usage, as a bar and in tokens
+- **Model** in use, behind the Claude spark
 - **Effort level**
-- **5-hour and 7-day rate limits**, with the time left until each one resets
+- **Folder ⎇ git branch**: green when everything is committed, orange otherwise, with uncommitted line changes
+- **Context window** usage, as a gauge and in tokens
+- **5-hour and 7-day rate limits**, with the time left until each one resets; in the last 15 minutes before the 5-hour reset, a ↻ respawn countdown
 
-Bars turn red at 80%.
+Gauges turn red at 80%.
 
 ## Requirements
 

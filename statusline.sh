@@ -26,12 +26,20 @@ IFS='|' read -r model cwd ctx size used effort h5 h5r d7 d7r < <(jq -r '
       .rate_limits.seven_day.resets_at // ""
     ] | map(tostring) | join("|")' <<<"$input")
 
-bar() {  # $1 = percentage
-  local p=${1%.*} n i fill="" empty="" c=$ORANGE
+gauge() {  # $1 = percentage → segmented gauge (▋ = 5/8 of a cell, the remaining space separates segments)
+  local p=${1%.*} n i c=$ORANGE fill="" empty=""
+  (( p > 100 )) && p=100
   (( p >= 80 )) && c=$RED
   n=$(( (p + 5) / 10 )); (( n > 10 )) && n=10
-  for ((i = 0; i < 10; i++)); do (( i < n )) && fill+="█" || empty+="░"; done
-  printf '%s%s%s%s%s %3d%%' "$c" "$fill" "$DIM" "$empty" "$RESET" "$p"
+  for ((i = 0; i < 10; i++)); do (( i < n )) && fill+="▋" || empty+="▋"; done
+  printf '%s%s%s%s%s %d%%' "$c" "$fill" "$DIM" "$empty" "$RESET" "$p"
+}
+
+timer() {  # $1 = reset epoch → respawn countdown in the last quarter hour, else time left
+  [ -z "$1" ] && return
+  local s=$(( ${1%.*} - now ))
+  if (( s >= 0 && s < 900 )); then printf ' %s↻ respawn %dmin%s' "$GREEN" $(( (s + 59) / 60 )) "$RESET"
+  else left "$1"; fi
 }
 
 left() {  # $1 = reset epoch
@@ -50,10 +58,12 @@ fmt() {  # tokens → 134k, 1M, 1.5M
   else printf '%d' "$n"; fi
 }
 
-# ── Folder @ branch (+ uncommitted diff)
+# ── Folder ⎇ branch (green when everything is committed, orange otherwise) + uncommitted diff
 loc="${CYAN}${cwd##*/}${RESET}"
 if branch=$(git --no-optional-locks -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
-  loc+="${DIM}@${RESET}${GREEN}${branch}${RESET}"
+  bc=$GREEN
+  [ -n "$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null | head -1)" ] && bc=$ORANGE
+  loc+=" ${bc}⎇ ${branch}${RESET}"
   stat=$(git --no-optional-locks -C "$cwd" diff --numstat 2>/dev/null \
     | awk '{a+=$1; d+=$2} END {if (a+d) printf "+%d -%d", a, d}')
   [ -n "$stat" ] && loc+=" ${DIM}(${RESET}${GREEN}${stat% *}${RESET} ${RED}${stat#* }${RESET}${DIM})${RESET}"
@@ -75,9 +85,10 @@ esac
 # ── Context: derive tokens from percentage when current_usage is missing
 (( ${used%.*} == 0 && size > 0 )) && used=$(( ${ctx%.*} * size / 100 ))
 
-line="${model}${SEP}${loc}${SEP}ctx $(bar "$ctx")"
-(( size > 0 )) && line+=" ${DIM}$(fmt "$used")/$(fmt "$size")${RESET}"
+line="${ORANGE}✻${RESET} ${model% (*context)}"   # spark + "Opus 5.5 (1M context)" → "Opus 5.5"
 [ -n "$eff" ] && line+="${SEP}${eff}"
-[ -n "$h5" ] && line+="${SEP}5h $(bar "$h5")$(left "$h5r")"
-[ -n "$d7" ] && line+="${SEP}7d $(bar "$d7")$(left "$d7r")"
+line+="${SEP}${loc}${SEP}ctx $(gauge "$ctx")"
+(( size > 0 )) && line+=" ${DIM}$(fmt "$used")/$(fmt "$size")${RESET}"
+[ -n "$h5" ] && line+="${SEP}5h $(gauge "$h5")$(timer "$h5r")"
+[ -n "$d7" ] && line+="${SEP}7d $(gauge "$d7")$(left "$d7r")"
 printf '%s\n' "$line"
