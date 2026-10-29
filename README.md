@@ -18,7 +18,7 @@ Gauges turn red at 80%.
 
 ## Requirements
 
-- `bash`, `curl`, `jq`
+- `bash`, `curl`, `jq` (or [`jaq`](https://github.com/01mf02/jaq), preferred when installed)
 - `git` (optional, for the branch and diff)
 
 ## Install

@@ -8,6 +8,7 @@ CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SCRIPT="$CONFIG_DIR/statusline.sh"
 SETTINGS="$CONFIG_DIR/settings.json"
 SELF="${BASH_SOURCE[0]:-}"  # empty when piped from curl
+JQ=$(command -v jaq || command -v jq || true)  # jaq is a faster drop-in for jq
 
 die() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 ok()  { printf '\033[32m✓\033[0m %s\n' "$*"; }
@@ -25,7 +26,7 @@ pick_layout() {
       && touch "$demo/wip" || true
   fi
   now=$(date +%s)
-  json=$(jq -n --arg cwd "$demo" --argjson now "$now" '{
+  json=$("$JQ" -n --arg cwd "$demo" --argjson now "$now" '{
     model: {display_name: "Opus 5.5 (1M context)"}, workspace: {current_dir: $cwd}, effort: {level: "high"},
     context_window: {used_percentage: 42, context_window_size: 1000000},
     rate_limits: {five_hour: {used_percentage: 31, resets_at: ($now + 8040)},
@@ -46,7 +47,7 @@ pick_layout() {
 # Everything lives in main: a truncated download runs nothing.
 main() {
   command -v curl >/dev/null || die "curl is required"
-  command -v jq   >/dev/null || die "jq is required (brew install jq / apt install jq)"
+  [ -n "$JQ" ] || die "jq or jaq is required (brew install jq / apt install jq / cargo install jaq)"
   command -v git  >/dev/null || printf '! git not found: branch will not be shown\n'
 
   mkdir -p "$CONFIG_DIR"
@@ -66,11 +67,11 @@ main() {
 
   # ── settings.json (merge, other keys are kept)
   if [ -s "$SETTINGS" ]; then
-    jq empty "$SETTINGS" 2>/dev/null || die "$SETTINGS is not valid JSON, nothing was changed"
+    "$JQ" empty "$SETTINGS" 2>/dev/null || die "$SETTINGS is not valid JSON, nothing was changed"
   fi
 
   # ── Layout: STATUSLINE_LAYOUT, else ask with a preview, else keep the current one
-  current=$(jq -r '.statusLine.command // "" | split(" ")[1] // ""' "$SETTINGS" 2>/dev/null || true)
+  current=$("$JQ" -r '.statusLine.command // "" | split(" ")[-1] // ""' "$SETTINGS" 2>/dev/null || true)
   case "$current" in full|compact) ;; *) current="" ;; esac  # another status line, or an older install
   layout=${STATUSLINE_LAYOUT:-}
   if [ -z "$layout" ]; then
@@ -80,12 +81,20 @@ main() {
   ok "layout: $layout"
 
   if [ -s "$SETTINGS" ]; then
-    cp "$SETTINGS" "$SETTINGS.bak"
-    ok "backup: $SETTINGS.bak"
+    # Only the first backup is kept: later runs would overwrite the original with an already-modified file
+    if [ -e "$SETTINGS.bak" ]; then
+      ok "backup kept: $SETTINGS.bak (from an earlier install)"
+    else
+      cp "$SETTINGS" "$SETTINGS.bak"
+      ok "backup: $SETTINGS.bak"
+    fi
   else
     echo '{}' > "$SETTINGS"
   fi
-  jq --arg cmd "$SCRIPT $layout" '.statusLine = {type: "command", command: $cmd}' "$SETTINGS" > "$tmp"
+  # Single-quoted so a path with spaces or shell characters survives the shell that runs the command
+  sq="'"
+  cmd="'${SCRIPT//$sq/$sq\\$sq$sq}' $layout"
+  "$JQ" --arg cmd "$cmd" '.statusLine = {type: "command", command: $cmd}' "$SETTINGS" > "$tmp"
   cat "$tmp" > "$SETTINGS"  # rewrite in place: keeps file permissions
   ok "statusLine configured in $SETTINGS"
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Usage: statusline.sh [full|compact]   full = 3 lines next to Clawd (default), compact = 1 line
 layout=${1:-full}
+# jaq is a faster drop-in for jq: use it when installed
+JQ=$(command -v jaq || command -v jq || true)
 input=$(cat)
 now=$(date +%s)
 
@@ -12,21 +14,29 @@ DIM=$'\033[90m'
 RESET=$'\033[0m'
 SEP=" ${DIM}│${RESET} "
 
-IFS='|' read -r model cwd ctx size used effort h5 h5r d7 d7r < <(jq -r '
+# cwd comes last: read puts the rest of the line (any '|' included) in the final variable.
+# Strings are stripped of '|' and control characters so they can't shift fields or drive the terminal.
+IFS='|' read -r ctx size used effort h5 h5r d7 d7r model cwd < <("$JQ" -r '
+  def clean: tostring | gsub("[|[:cntrl:]]"; "");
   (.context_window // {}) as $c
   | ($c.current_usage // {}) as $u
   | [
-      .model.display_name // "?",
-      .workspace.current_dir // .cwd // "",
-      $c.used_percentage // 0,
-      $c.context_window_size // 0,
+      ($c.used_percentage // 0),
+      ($c.context_window_size // 0),
       (($u.input_tokens // 0) + ($u.cache_creation_input_tokens // 0) + ($u.cache_read_input_tokens // 0)),
-      .effort.level // "",
-      .rate_limits.five_hour.used_percentage // "",
-      .rate_limits.five_hour.resets_at // "",
-      .rate_limits.seven_day.used_percentage // "",
-      .rate_limits.seven_day.resets_at // ""
+      (.effort.level // "" | clean),
+      (.rate_limits.five_hour.used_percentage // ""),
+      (.rate_limits.five_hour.resets_at // ""),
+      (.rate_limits.seven_day.used_percentage // ""),
+      (.rate_limits.seven_day.resets_at // ""),
+      (.model.display_name // "?" | clean),
+      (.workspace.current_dir // .cwd // "" | gsub("[[:cntrl:]]"; ""))
     ] | map(tostring) | join("|")' <<<"$input")
+
+# Bash evaluates strings in (( )) as expressions, so anything not a plain number must never reach it.
+num='^[0-9]+(\.[0-9]+)?$'
+for v in ctx size used; do [[ ${!v} =~ $num ]] || printf -v "$v" 0; done
+for v in h5 h5r d7 d7r; do [[ ${!v} =~ $num ]] || printf -v "$v" ''; done
 
 gauge() {  # $1 = percentage → segmented gauge (▋ = 5/8 of a cell, the remaining space separates segments)
   local p=${1%.*} n i c=$ORANGE fill="" empty=""
@@ -63,19 +73,21 @@ fmt() {  # tokens → 134k, 1M, 1.5M
 # ── ⎇ folder branch (branch green when everything is committed, orange otherwise) + uncommitted diff
 vcs="${DIM}·${RESET}"   # icon column placeholder outside a git repo
 loc="${CYAN}${cwd##*/}${RESET}"
-if branch=$(git --no-optional-locks -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null); then
+# A repo's own config can run commands (core.fsmonitor), so neutralize it for these read-only calls
+g() { git --no-optional-locks -c core.fsmonitor=false -C "$cwd" "$@"; }
+if branch=$(g rev-parse --abbrev-ref HEAD 2>/dev/null); then
   bc=$GREEN
-  [ -n "$(git --no-optional-locks -C "$cwd" status --porcelain 2>/dev/null | head -1)" ] && bc=$ORANGE
+  [ -n "$(g status --porcelain 2>/dev/null | head -1)" ] && bc=$ORANGE
   vcs="${ORANGE}⎇${RESET}"
-  loc+=" ${bc}${branch}${RESET}"
-  stat=$(git --no-optional-locks -C "$cwd" diff --numstat 2>/dev/null \
+  loc+=" ${bc}${branch//[[:cntrl:]]/}${RESET}"
+  stat=$(g diff --no-ext-diff --numstat 2>/dev/null \
     | awk '{a+=$1; d+=$2} END {if (a+d) printf "+%d -%d", a, d}')
   [ -n "$stat" ] && loc+=" ${DIM}(${RESET}${GREEN}${stat% *}${RESET} ${RED}${stat#* }${RESET}${DIM})${RESET}"
 fi
 
 # ── Effort: session JSON, else env var, else settings.json
 if [ -z "$effort" ]; then
-  effort=${CLAUDE_CODE_EFFORT_LEVEL:-$(jq -r '.effortLevel // empty' \
+  effort=${CLAUDE_CODE_EFFORT_LEVEL:-$("$JQ" -r '.effortLevel // empty' \
     "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null)}
 fi
 case "$effort" in
